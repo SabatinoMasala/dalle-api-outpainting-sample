@@ -22,7 +22,7 @@ app.post('/inpaint', async (req, res) => {
             // We send the same image as a base and as a mask
             fs.createReadStream(path),
             fs.createReadStream(path),
-            prompt,
+            req.body.prompt,
             1,
             '512x512'
         );

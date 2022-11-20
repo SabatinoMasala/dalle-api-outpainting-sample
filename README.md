@@ -1,6 +1,6 @@
 # Dall-E API outpainting sample
 
-Outpainting is actually just inpainting within incomplete image frames (called generation frames in Dall-E UI). This repo demonstrates how you can leverage the Dall-E API for outpainting.
+Outpainting is actually just inpainting within so called 'generation frames'. This repo demonstrates how you can leverage the Dall-E API for outpainting.
 
 ![Start image](https://github.com/SabatinoMasala/dalle-api-outpainting-sample/blob/main/sample.png)
 

@@ -7,7 +7,7 @@
       <div class="pl-3 pr-3">
         <h1>Outpainting example</h1>
         <p>
-          Outpainting is actually just inpainting within incomplete image frames (called generation frames in Dall-E UI).
+          Outpainting is actually just inpainting within so-called 'generation frames'
         </p>
         <p>
           Below, the images are shown that have been prepared for inpainting. These images are 512x512px and have a transparency channel.
@@ -24,7 +24,7 @@
           <p>
             Make sure the server is running & your API key is filled in, then press the button below.
           </p>
-          <button @click="extendVertical" :disabled="initializing || loading">
+          <button @click="extendVertical" :disabled="generationFramesLoading || loading">
             <template v-if="loading">Loading, give it around 20 seconds</template>
             <template v-else>Extend image</template>
           </button>
@@ -108,9 +108,11 @@ export default {
         });
       })
     },
-    async resize(image, top, left) {
+    async generationFrame(image, top, left) {
+      // Clear the canvas
       this.cropCanvas.remove(...this.cropCanvas.getObjects()).renderAll();
       return new Promise((resolve, reject) => {
+        // Load the image, set the position, and resolve the promise with the resulting image
         fabric.Image.fromURL(image, (img) => {
           this.cropCanvas.add(img).renderAll();
           img.set({
@@ -128,27 +130,27 @@ export default {
     this.drawCanvas = new fabric.Canvas('drawCanvas');
     // Initialize stitchCanvas, this canvas will contain our resulting stitched vertical image
     this.stitchCanvas = new fabric.StaticCanvas('stitchCanvas');
-    // Initialize cropCanvas, this canvas will be used for chopping the image up and generating the incomplete frames
+    // Initialize cropCanvas, this canvas will be used for chopping the image up and creating the generation frames
     this.cropCanvas = new fabric.Canvas('cropCanvas');
     // Start by loading in the image
     fabric.Image.fromURL(this.image, async (img) => {
       this.drawCanvas.add(img).renderAll();
-      // Generate the incomplete frames, top, bottom, left and right
-      this.topPart = await this.resize(this.drawCanvas.toDataURL({
+      // Create the generation frames, top, bottom, left and right
+      this.topPart = await this.generationFrame(this.drawCanvas.toDataURL({
         height: HALF_ORIGINAL_SIZE
       }), HALF_ORIGINAL_SIZE, 0);
-      this.bottomPart = await this.resize(this.drawCanvas.toDataURL({
+      this.bottomPart = await this.generationFrame(this.drawCanvas.toDataURL({
         top: HALF_ORIGINAL_SIZE,
         height: HALF_ORIGINAL_SIZE
       }), 0, 0);
-      this.leftPart = await this.resize(this.drawCanvas.toDataURL({
+      this.leftPart = await this.generationFrame(this.drawCanvas.toDataURL({
         width: HALF_ORIGINAL_SIZE
       }), 0, HALF_ORIGINAL_SIZE);
-      this.rightPart = await this.resize(this.drawCanvas.toDataURL({
+      this.rightPart = await this.generationFrame(this.drawCanvas.toDataURL({
         left: HALF_ORIGINAL_SIZE,
         width: HALF_ORIGINAL_SIZE
       }), 0, 0);
-      this.initializing = false;
+      this.generationFramesLoading = false;
     });
     // Also draw in the original image on the stitching canvas, centered vertically
     fabric.Image.fromURL(this.image, async (img) => {
@@ -163,13 +165,16 @@ export default {
     return {
       loading: false,
       generated: false,
-      initializing: true,
+      generationFramesLoading: true,
+      // Results from API
       bottomResult: false,
       topResult: false,
+      // Generation frames
       topPart: false,
       bottomPart: false,
       leftPart: false,
       rightPart: false,
+      // Canvas sizes
       destinationHeight: DEST_HEIGHT,
       originalSize: ORIGINAL_SIZE,
     }

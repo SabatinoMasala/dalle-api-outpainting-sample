@@ -5,17 +5,19 @@
         <canvas id="stitchCanvas" :width="originalSize" :height="destinationHeight"></canvas>
       </div>
       <div class="pl-3 pr-3">
-        <h1>Outpainting example</h1>
+        <h1>
+          Outpainting example
+        </h1>
         <p>
           Outpainting is actually just inpainting within so-called 'generation frames'
         </p>
         <p>
           Below, the images are shown that have been prepared for inpainting. These images are 512x512px and have a transparency channel.
         </p>
-        <img width="200" :src="topPart" />
-        <img width="200" :src="bottomPart" />
-        <img width="200" :src="leftPart" />
-        <img width="200" :src="rightPart" />
+        <img width="200" :src="topGenerationFrame" />
+        <img width="200" :src="bottomGenerationFrame" />
+        <img width="200" :src="leftGenerationFrame" />
+        <img width="200" :src="rightGenerationFrame" />
         <p>
           By sending this image to the Dall-E API both as an image and as a mask, we ask Dall-E to inpaint the transparent pixels.
           The resulting image will then be stitched in a canvas on the right position.
@@ -30,11 +32,11 @@
           </button>
         </div>
         <div v-if="topResult">
-          <img width="200" :src="topPart" />
+          <img width="200" :src="topGenerationFrame" />
           <img width="200" :src="topResult" />
         </div>
         <div v-if="bottomResult">
-          <img width="200" :src="bottomPart" />
+          <img width="200" :src="bottomGenerationFrame" />
           <img width="200" :src="bottomResult" />
         </div>
       </div>
@@ -75,10 +77,10 @@ export default {
       this.loading = true;
       try {
         await Promise.all([
-            this.extend(this.topPart, HALF_DEST_HEIGHT - ORIGINAL_SIZE).then(url => {
+            this.extend(this.topGenerationFrame, HALF_DEST_HEIGHT - ORIGINAL_SIZE).then(url => {
               this.topResult = url;
             }),
-            this.extend(this.bottomPart, HALF_DEST_HEIGHT).then(url => {
+            this.extend(this.bottomGenerationFrame, HALF_DEST_HEIGHT).then(url => {
               this.bottomResult = url;
             })
         ])
@@ -136,17 +138,17 @@ export default {
     fabric.Image.fromURL(this.image, async (img) => {
       this.drawCanvas.add(img).renderAll();
       // Create the generation frames, top, bottom, left and right
-      this.topPart = await this.generationFrame(this.drawCanvas.toDataURL({
+      this.topGenerationFrame = await this.generationFrame(this.drawCanvas.toDataURL({
         height: HALF_ORIGINAL_SIZE
       }), HALF_ORIGINAL_SIZE, 0);
-      this.bottomPart = await this.generationFrame(this.drawCanvas.toDataURL({
+      this.bottomGenerationFrame = await this.generationFrame(this.drawCanvas.toDataURL({
         top: HALF_ORIGINAL_SIZE,
         height: HALF_ORIGINAL_SIZE
       }), 0, 0);
-      this.leftPart = await this.generationFrame(this.drawCanvas.toDataURL({
+      this.leftGenerationFrame = await this.generationFrame(this.drawCanvas.toDataURL({
         width: HALF_ORIGINAL_SIZE
       }), 0, HALF_ORIGINAL_SIZE);
-      this.rightPart = await this.generationFrame(this.drawCanvas.toDataURL({
+      this.rightGenerationFrame = await this.generationFrame(this.drawCanvas.toDataURL({
         left: HALF_ORIGINAL_SIZE,
         width: HALF_ORIGINAL_SIZE
       }), 0, 0);
@@ -170,10 +172,10 @@ export default {
       bottomResult: false,
       topResult: false,
       // Generation frames
-      topPart: false,
-      bottomPart: false,
-      leftPart: false,
-      rightPart: false,
+      topGenerationFrame: false,
+      bottomGenerationFrame: false,
+      leftGenerationFrame: false,
+      rightGenerationFrame: false,
       // Canvas sizes
       destinationHeight: DEST_HEIGHT,
       originalSize: ORIGINAL_SIZE,

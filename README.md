@@ -12,4 +12,4 @@ We want to extend 256px downward, so we shift the image upward and introduce 256
 
 <img src="https://github.com/SabatinoMasala/dalle-api-outpainting-sample/blob/main/client/public/frame.png" width="200"><img src="https://github.com/SabatinoMasala/dalle-api-outpainting-sample/blob/main/client/public/outpaint.png" width="200">
 
-Finally, we can stitch everything together in a canvas element and get our final results.
+We do the same for the top part, and stitch the result using a canvas element.

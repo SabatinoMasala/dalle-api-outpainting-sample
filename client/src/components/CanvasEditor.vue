@@ -1,18 +1,11 @@
 <template>
   <div>
-    <div class="text-center mt-4">
-      <div>
-        <button key="make" variant="primary" @click="extendVertical" :disabled="initializing" v-if="!generated">
-          Create
-        </button>
-      </div>
-    </div>
     <div class="d-flex">
       <div>
         <canvas id="stitchCanvas" width="512" height="910"></canvas>
       </div>
       <div class="pl-3 pr-3">
-        <h1>Split images</h1>
+        <h1>Outpainting example</h1>
         <p>
           Outpainting is actually just inpainting within incomplete image frames (called generation frames in Dall-E UI).
         </p>
@@ -27,8 +20,23 @@
           By sending this image to the Dall-E API both as an image and as a mask, we ask Dall-E to inpaint the transparent pixels.
           The resulting image will then be stitched in a canvas on the right position.
         </p>
-        <img width="200" :src="bottomPart" />
-        <img width="200" src="/outpaint.png" />
+        <div class="panel" v-if="!generated">
+          <p>
+            Make sure the server is running & your API key is filled in, then press the button below.
+          </p>
+          <button @click="extendVertical" :disabled="initializing || loading">
+            <template v-if="loading">Loading, give it arount 20 seconds</template>
+            <template v-else>Extend image</template>
+          </button>
+        </div>
+        <div v-if="bottomResult">
+          <img width="200" :src="bottomPart" />
+          <img width="200" :src="bottomResult" />
+        </div>
+        <div v-if="topResult">
+          <img width="200" :src="topPart" />
+          <img width="200" :src="topResult" />
+        </div>
       </div>
     </div>
     <div class="d-none">
@@ -61,18 +69,23 @@ export default {
   methods: {
     async extendVertical() {
       this.loading = true;
-      await Promise.all([
-        this.extendTop(),
-        this.extendBottom()
-      ])
+      try {
+        await Promise.all([
+          this.extendTop(),
+          this.extendBottom()
+        ])
+        this.generated = true;
+      } catch (error) {
+        alert('Something went wrong, is the server running? Is your API key filled out? See console for details.')
+      }
       this.loading = false;
-      this.generated = true;
     },
     async extendTop() {
       const res = await $http.post(`${API}/inpaint`, {
         prompt: this.prompt,
         image: this.topPart,
       })
+      this.topResult = res.data;
       fabric.Image.fromURL(res.data, (img) => {
         this.stitchCanvas.add(img);
         img.set({
@@ -87,6 +100,7 @@ export default {
         prompt: this.prompt,
         image: this.bottomPart,
       })
+      this.bottomResult = res.data;
       fabric.Image.fromURL(res.data, (img) => {
         this.stitchCanvas.add(img);
         img.set({
@@ -148,7 +162,9 @@ export default {
       generated: false,
       initializing: true,
       topPart: false,
+      topResult: false,
       bottomPart: false,
+      bottomResult: false,
       leftPart: false,
       rightPart: false,
     }

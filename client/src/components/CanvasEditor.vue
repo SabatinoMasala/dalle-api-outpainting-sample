@@ -2,7 +2,7 @@
   <div>
     <div class="d-flex">
       <div>
-        <canvas id="stitchCanvas" width="512" height="910"></canvas>
+        <canvas id="stitchCanvas" :width="originalSize" :height="destinationHeight"></canvas>
       </div>
       <div class="pl-3 pr-3">
         <h1>Outpainting example</h1>
@@ -25,23 +25,23 @@
             Make sure the server is running & your API key is filled in, then press the button below.
           </p>
           <button @click="extendVertical" :disabled="initializing || loading">
-            <template v-if="loading">Loading, give it arount 20 seconds</template>
+            <template v-if="loading">Loading, give it around 20 seconds</template>
             <template v-else>Extend image</template>
           </button>
-        </div>
-        <div v-if="bottomResult">
-          <img width="200" :src="bottomPart" />
-          <img width="200" :src="bottomResult" />
         </div>
         <div v-if="topResult">
           <img width="200" :src="topPart" />
           <img width="200" :src="topResult" />
         </div>
+        <div v-if="bottomResult">
+          <img width="200" :src="bottomPart" />
+          <img width="200" :src="bottomResult" />
+        </div>
       </div>
     </div>
     <div class="d-none">
-      <canvas id="drawCanvas" width="512" height="512"></canvas>
-      <canvas id="cropCanvas" width="512" height="512"></canvas>
+      <canvas id="drawCanvas" :width="originalSize" :height="originalSize"></canvas>
+      <canvas id="cropCanvas" :width="originalSize" :height="originalSize"></canvas>
     </div>
   </div>
 </template>
@@ -57,8 +57,12 @@ img {
 }
 </style>
 <script>
-const SIZE = 512;
-const HALF_SIZE = 512 / 2;
+const DEST_HEIGHT = 910;
+const HALF_DEST_HEIGHT = DEST_HEIGHT / 2;
+
+const ORIGINAL_SIZE = 512;
+const HALF_ORIGINAL_SIZE = ORIGINAL_SIZE / 2;
+
 const API = 'http://localhost:3333'
 import $http from 'axios'
 export default {
@@ -71,8 +75,12 @@ export default {
       this.loading = true;
       try {
         await Promise.all([
-          this.extendTop(),
-          this.extendBottom()
+            this.extend(this.topPart, HALF_DEST_HEIGHT - ORIGINAL_SIZE).then(url => {
+              this.topResult = url;
+            }),
+            this.extend(this.bottomPart, HALF_DEST_HEIGHT).then(url => {
+              this.bottomResult = url;
+            })
         ])
         this.generated = true;
       } catch (error) {
@@ -80,35 +88,25 @@ export default {
       }
       this.loading = false;
     },
-    async extendTop() {
+    // Extend the given image and stitch it in at yPosition
+    async extend(image, yPosition) {
+      // Make sure the server is running, this will take ~20 seconds on average
       const res = await $http.post(`${API}/inpaint`, {
         prompt: this.prompt,
-        image: this.topPart,
+        image,
       })
-      this.topResult = res.data;
-      fabric.Image.fromURL(res.data, (img) => {
-        this.stitchCanvas.add(img);
-        img.set({
-          top: 455 - SIZE // 910 destination size, 455 = 910/2
-        })
-        img.sendToBack();
-        this.stitchCanvas.renderAll();
-      });
-    },
-    async extendBottom() {
-      const res = await $http.post(`${API}/inpaint`, {
-        prompt: this.prompt,
-        image: this.bottomPart,
+      return new Promise((resolve, reject) => {
+        // Draw the resulting image in the stitching canvas
+        fabric.Image.fromURL(res.data, (img) => {
+          this.stitchCanvas.add(img);
+          img.set({
+            top: yPosition
+          })
+          img.sendToBack();
+          this.stitchCanvas.renderAll();
+          resolve(res.data);
+        });
       })
-      this.bottomResult = res.data;
-      fabric.Image.fromURL(res.data, (img) => {
-        this.stitchCanvas.add(img);
-        img.set({
-          top: 455
-        })
-        img.sendToBack();
-        this.stitchCanvas.renderAll();
-      });
     },
     async resize(image, top, left) {
       this.cropCanvas.remove(...this.cropCanvas.getObjects()).renderAll();
@@ -126,32 +124,37 @@ export default {
     }
   },
   mounted() {
+    // Initialize drawCanvas, this canvas will contain our original drawing / image
     this.drawCanvas = new fabric.Canvas('drawCanvas');
+    // Initialize stitchCanvas, this canvas will contain our resulting stitched vertical image
     this.stitchCanvas = new fabric.StaticCanvas('stitchCanvas');
+    // Initialize cropCanvas, this canvas will be used for chopping the image up and generating the incomplete frames
     this.cropCanvas = new fabric.Canvas('cropCanvas');
-    window.drawCanvas = this.drawCanvas;
+    // Start by loading in the image
     fabric.Image.fromURL(this.image, async (img) => {
       this.drawCanvas.add(img).renderAll();
+      // Generate the incomplete frames, top, bottom, left and right
       this.topPart = await this.resize(this.drawCanvas.toDataURL({
-        height: HALF_SIZE
-      }), HALF_SIZE, 0);
+        height: HALF_ORIGINAL_SIZE
+      }), HALF_ORIGINAL_SIZE, 0);
       this.bottomPart = await this.resize(this.drawCanvas.toDataURL({
-        top: HALF_SIZE,
-        height: HALF_SIZE
+        top: HALF_ORIGINAL_SIZE,
+        height: HALF_ORIGINAL_SIZE
       }), 0, 0);
       this.leftPart = await this.resize(this.drawCanvas.toDataURL({
-        width: HALF_SIZE
-      }), 0, HALF_SIZE);
+        width: HALF_ORIGINAL_SIZE
+      }), 0, HALF_ORIGINAL_SIZE);
       this.rightPart = await this.resize(this.drawCanvas.toDataURL({
-        left: HALF_SIZE,
-        width: HALF_SIZE
+        left: HALF_ORIGINAL_SIZE,
+        width: HALF_ORIGINAL_SIZE
       }), 0, 0);
       this.initializing = false;
     });
+    // Also draw in the original image on the stitching canvas, centered vertically
     fabric.Image.fromURL(this.image, async (img) => {
       this.stitchCanvas.add(img).renderAll();
       img.set({
-        top: 455 - HALF_SIZE
+        top: HALF_DEST_HEIGHT - HALF_ORIGINAL_SIZE
       }).setCoords();
       this.stitchCanvas.renderAll();
     });
@@ -161,12 +164,14 @@ export default {
       loading: false,
       generated: false,
       initializing: true,
-      topPart: false,
-      topResult: false,
-      bottomPart: false,
       bottomResult: false,
+      topResult: false,
+      topPart: false,
+      bottomPart: false,
       leftPart: false,
       rightPart: false,
+      destinationHeight: DEST_HEIGHT,
+      originalSize: ORIGINAL_SIZE,
     }
   }
 }

@@ -34,8 +34,12 @@ In the server directory, run `yarn install` and then `node index.js`. This will 
 The client app is a simple Vue application, go into the `client` directory, run `yarn install` and then `yarn dev`. Open the URL in your browser, and you'll be presented with the sample application.
 ![Start image](https://github.com/SabatinoMasala/dalle-api-outpainting-sample/blob/main/sample.png)
 
-
 # Running the sample
+
+Clone the repo:
+```
+git clone https://github.com/SabatinoMasala/dalle-api-outpainting-sample.git
+```
 
 The sample has 2 parts:
 - Server

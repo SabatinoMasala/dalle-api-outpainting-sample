@@ -6,7 +6,7 @@ Outpainting is actually just inpainting within so called 'generation frames'. Th
 
 Our starting image may look like this:
 
-![Start image](https://github.com/SabatinoMasala/dalle-api-outpainting-sample/blob/main/client/public/demo.jpg)
+![Start image](https://github.com/SabatinoMasala/dalle-api-outpainting-sample/blob/main/client/public/dog.jpg)
 
 We want to extend 256px downward, so we shift the image upward and introduce 256px of 'filler' pixels (these will be replaced anyway). By passing resulting image to the Dall-E API both as a source and mask, we get the following result back:
 

@@ -22,7 +22,7 @@ export default {
         prompt: 'a woman with glasses smiling at the camera with a sunset in the background behind her and a blurry background, by George Lambourn'
       }, {
         image: '/dog.jpg',
-        prompt: 'dog stylized minimalist, loftis, cory behance hd by jesper ejsing, by rhads, makoto shinkai and lois van baarle, ilya kuvshinov, rossdraws global illumination'
+        prompt: 'Husky dog'
       }],
       currentSampleIndex: 0
     }

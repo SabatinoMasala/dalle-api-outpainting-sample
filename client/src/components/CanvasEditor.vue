@@ -2,7 +2,7 @@
   <div>
     <div class="d-flex">
       <div>
-        <canvas id="stitchCanvas" :width="originalSize" :height="destinationHeight"></canvas>
+        <canvas id="stitchCanvas" :width="destinationWidth" :height="destinationHeight"></canvas>
       </div>
       <div class="pl-3 pr-3">
         <h1>
@@ -26,18 +26,30 @@
           <p>
             Make sure the server is running & your API key is filled in, then press the button below.
           </p>
-          <button @click="extendVertical" :disabled="generationFramesLoading || loading">
+          <button @click="extendVerticalAndHorizontal" :disabled="generationFramesLoading || loading">
             <template v-if="loading">Loading, give it around 20 seconds</template>
             <template v-else>Extend image</template>
           </button>
         </div>
         <div v-if="topResult">
+          <p>Top:</p>
           <img width="200" :src="topGenerationFrame" />
           <img width="200" :src="topResult" />
         </div>
         <div v-if="bottomResult">
+          <p>Bottom:</p>
           <img width="200" :src="bottomGenerationFrame" />
           <img width="200" :src="bottomResult" />
+        </div>
+        <div v-if="leftResult">
+          <p>Left:</p>
+          <img width="200" :src="leftGenerationFrame" />
+          <img width="200" :src="leftResult" />
+        </div>
+        <div v-if="rightResult">
+          <p>Right:</p>
+          <img width="200" :src="rightGenerationFrame" />
+          <img width="200" :src="rightResult" />
         </div>
       </div>
     </div>
@@ -60,10 +72,15 @@ img {
 </style>
 <script>
 const DEST_HEIGHT = 910;
+const DEST_WIDTH = 910;
+const HALF_DEST_WIDTH = DEST_WIDTH / 2;
 const HALF_DEST_HEIGHT = DEST_HEIGHT / 2;
 
 const ORIGINAL_SIZE = 512;
 const HALF_ORIGINAL_SIZE = ORIGINAL_SIZE / 2;
+
+const GENERATED_TILE_SIZE = 512;
+const HALF_GENERATED_TILE_SIZE = GENERATED_TILE_SIZE / 2;
 
 const API = 'http://localhost:3333'
 import $http from 'axios'
@@ -73,15 +90,21 @@ export default {
     prompt: String
   },
   methods: {
-    async extendVertical() {
+    async extendVerticalAndHorizontal() {
       this.loading = true;
       try {
         await Promise.all([
-            this.extend(this.topGenerationFrame, HALF_DEST_HEIGHT - ORIGINAL_SIZE).then(url => {
+            this.extend(this.topGenerationFrame, - ORIGINAL_SIZE / 2, 0).then(url => {
               this.topResult = url;
             }),
-            this.extend(this.bottomGenerationFrame, HALF_DEST_HEIGHT).then(url => {
+            this.extend(this.bottomGenerationFrame, ORIGINAL_SIZE / 2, 0).then(url => {
               this.bottomResult = url;
+            }),
+            this.extend(this.leftGenerationFrame, 0, -HALF_GENERATED_TILE_SIZE).then(url => {
+              this.leftResult = url;
+            }),
+            this.extend(this.rightGenerationFrame, 0, HALF_GENERATED_TILE_SIZE).then(url => {
+              this.rightResult = url;
             })
         ])
         this.generated = true;
@@ -91,7 +114,7 @@ export default {
       this.loading = false;
     },
     // Extend the given image and stitch it in at yPosition
-    async extend(image, yPosition) {
+    async extend(image, yPosition, xPosition) {
       // Make sure the server is running, this will take ~20 seconds on average
       const res = await $http.post(`${API}/inpaint`, {
         prompt: this.prompt,
@@ -102,7 +125,8 @@ export default {
         fabric.Image.fromURL(res.data, (img) => {
           this.stitchCanvas.add(img);
           img.set({
-            top: yPosition
+            top: yPosition + HALF_DEST_HEIGHT - img.height / 2,
+            left: xPosition + HALF_DEST_WIDTH - img.width / 2
           })
           img.sendToBack();
           this.stitchCanvas.renderAll();
@@ -157,6 +181,7 @@ export default {
     // Also draw in the original image on the stitching canvas, centered vertically
     fabric.Image.fromURL(this.image, async (img) => {
       this.stitchCanvas.add(img).renderAll();
+      this.stitchCanvas.centerObject(img).renderAll();
       img.set({
         top: HALF_DEST_HEIGHT - HALF_ORIGINAL_SIZE
       }).setCoords();
@@ -171,6 +196,8 @@ export default {
       // Results from API
       bottomResult: false,
       topResult: false,
+      leftResult: false,
+      rightResult: false,
       // Generation frames
       topGenerationFrame: false,
       bottomGenerationFrame: false,
@@ -178,6 +205,7 @@ export default {
       rightGenerationFrame: false,
       // Canvas sizes
       destinationHeight: DEST_HEIGHT,
+      destinationWidth: DEST_WIDTH,
       originalSize: ORIGINAL_SIZE,
     }
   }

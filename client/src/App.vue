@@ -1,6 +1,7 @@
 <template>
   <div>
-    <CanvasEditor image="/demo.jpg" :prompt="prompt" />
+    <img width="100" :src="sample.image" v-for="(sample, index) in examples" @click="currentSampleIndex = index" />
+    <CanvasEditor :key="currentSample.image" :image="currentSample.image" :prompt="currentSample.prompt" />
   </div>
 </template>
 <script>
@@ -9,9 +10,21 @@ export default {
   components: {
     CanvasEditor
   },
+  computed: {
+    currentSample() {
+      return this.examples[this.currentSampleIndex];
+    }
+  },
   data() {
     return {
-      prompt: 'dog stylized minimalist, loftis, cory behance hd by jesper ejsing, by rhads, makoto shinkai and lois van baarle, ilya kuvshinov, rossdraws global illumination'
+      examples: [{
+        image: '/woman.png',
+        prompt: 'a woman with glasses smiling at the camera with a sunset in the background behind her and a blurry background, by George Lambourn'
+      }, {
+        image: '/dog.jpg',
+        prompt: 'dog stylized minimalist, loftis, cory behance hd by jesper ejsing, by rhads, makoto shinkai and lois van baarle, ilya kuvshinov, rossdraws global illumination'
+      }],
+      currentSampleIndex: 0
     }
   }
 }

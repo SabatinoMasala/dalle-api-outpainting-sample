@@ -14,10 +14,7 @@
         <p>
           Below, the images are shown that have been prepared for inpainting. These images are 512x512px and have a transparency channel.
         </p>
-        <img width="200" :src="topGenerationFrame" />
-        <img width="200" :src="bottomGenerationFrame" />
-        <img width="200" :src="leftGenerationFrame" />
-        <img width="200" :src="rightGenerationFrame" />
+        <img width="200" :src="generationFrame.image" v-for="generationFrame in generationFrames" />
         <p>
           By sending this image to the Dall-E API both as an image and as a mask, we ask Dall-E to inpaint the transparent pixels.
           The resulting image will then be stitched in a canvas on the right position.
@@ -27,7 +24,7 @@
             Make sure the server is running & your API key is filled in, then press the button below.
           </p>
           <button @click="extendVerticalAndHorizontal" :disabled="generationFramesLoading || loading">
-            <template v-if="loading">Loading, give it around 20 seconds</template>
+            <template v-if="loading">Loading, give it around 20 seconds per iteration</template>
             <template v-else>Extend image</template>
           </button>
         </div>
@@ -53,10 +50,6 @@
         </div>
       </div>
     </div>
-    <div class="d-none">
-      <canvas id="drawCanvas" :width="originalSize" :height="originalSize"></canvas>
-      <canvas id="cropCanvas" :width="originalSize" :height="originalSize"></canvas>
-    </div>
   </div>
 </template>
 <style scoped>
@@ -71,8 +64,8 @@ img {
 }
 </style>
 <script>
-const DEST_HEIGHT = 910;
-const DEST_WIDTH = 910;
+const DEST_HEIGHT = 1200;
+const DEST_WIDTH = 1200;
 const HALF_DEST_WIDTH = DEST_WIDTH / 2;
 const HALF_DEST_HEIGHT = DEST_HEIGHT / 2;
 
@@ -90,31 +83,95 @@ export default {
     prompt: String
   },
   methods: {
+    addGenerationFrame(xOffsetPercentage, yOffsetPercentage, width = 512, height = 512) {
+      const rect = new fabric.Rect({
+        isGenerationFrame: true,
+        left: 0,
+        top: 0,
+        width,
+        height,
+        fill: 'rgba(255, 0, 0, 0.1)',
+        strokeWidth: 1,
+        stroke: '#f00'
+      });
+      this.stitchCanvas.add(rect);
+      this.stitchCanvas.centerObject(rect);
+      rect.set({
+        left: rect.left + ORIGINAL_SIZE * xOffsetPercentage,
+        top: rect.top + ORIGINAL_SIZE * yOffsetPercentage,
+      })
+      this.stitchCanvas.renderAll();
+      return {
+        image: this.grabGenerationFrame(rect),
+        rect
+      };
+    },
+    grabGenerationFrame(frame) {
+      const hiddenObjects = [];
+      this.stitchCanvas.forEachObject(o => {
+        if (o.isGenerationFrame) {
+          o.set({
+            visible: false,
+          })
+          hiddenObjects.push(o);
+        }
+      })
+      this.stitchCanvas.renderAll();
+      const res = this.stitchCanvas.toDataURL({
+        type: 'png',
+        left: frame.left,
+        top: frame.top,
+        width: frame.width,
+        height: frame.height,
+      });
+      hiddenObjects.forEach(o => {
+        o.set({
+          visible: true
+        })
+      });
+      this.stitchCanvas.renderAll();
+      return res;
+    },
     async extendVerticalAndHorizontal() {
       this.loading = true;
       try {
-        await Promise.all([
-            this.extend(this.topGenerationFrame, - ORIGINAL_SIZE / 2, 0).then(url => {
-              this.topResult = url;
-            }),
-            this.extend(this.bottomGenerationFrame, ORIGINAL_SIZE / 2, 0).then(url => {
-              this.bottomResult = url;
-            }),
-            this.extend(this.leftGenerationFrame, 0, -HALF_GENERATED_TILE_SIZE).then(url => {
-              this.leftResult = url;
-            }),
-            this.extend(this.rightGenerationFrame, 0, HALF_GENERATED_TILE_SIZE).then(url => {
-              this.rightResult = url;
-            })
-        ])
+        await Promise.all(this.generationFrames.map(gF => {
+          return this.extend(gF.image, gF.rect);
+        }))
+        this.stitchCanvas.renderAll();
+
+        this.clearAllGenerationFrames();
+
+        this.generationFrames.push(this.addGenerationFrame(-0.5, -0.5));
+        this.generationFrames.push(this.addGenerationFrame(0.5, -0.5));
+        this.generationFrames.push(this.addGenerationFrame(-0.5, 0.5));
+        this.generationFrames.push(this.addGenerationFrame(0.5, 0.5));
+
+        await Promise.all(this.generationFrames.map(gF => {
+          return this.extend(gF.image, gF.rect);
+        }))
+        this.stitchCanvas.renderAll();
+
+        this.clearAllGenerationFrames();
+
         this.generated = true;
       } catch (error) {
+        console.log(error);
         alert('Something went wrong, is the server running? Is your API key filled out? See console for details.')
       }
       this.loading = false;
     },
+    clearAllGenerationFrames() {
+      this.stitchCanvas.forEachObject(o => {
+        if (o.isGenerationFrame) {
+          o.canvas.remove(o);
+        }
+      })
+
+      this.generationFrames = [];
+    },
     // Extend the given image and stitch it in at yPosition
-    async extend(image, yPosition, xPosition) {
+    async extend(image, rect) {
       // Make sure the server is running, this will take ~20 seconds on average
       const res = await $http.post(`${API}/inpaint`, {
         prompt: this.prompt,
@@ -122,62 +179,25 @@ export default {
       })
       return new Promise((resolve, reject) => {
         // Draw the resulting image in the stitching canvas
-        fabric.Image.fromURL(res.data, (img) => {
+        fabric.Image.fromURL(`${API}${res.data}`, (img) => {
           this.stitchCanvas.add(img);
           img.set({
-            top: yPosition + HALF_DEST_HEIGHT - img.height / 2,
-            left: xPosition + HALF_DEST_WIDTH - img.width / 2
+            top: rect.top,
+            left: rect.left
           })
+          img.setCoords();
           img.sendToBack();
           this.stitchCanvas.renderAll();
-          resolve(res.data);
-        });
+          resolve();
+        }, { crossOrigin: 'Anonymous' });
       })
     },
-    async generationFrame(image, top, left) {
-      // Clear the canvas
-      this.cropCanvas.remove(...this.cropCanvas.getObjects()).renderAll();
-      return new Promise((resolve, reject) => {
-        // Load the image, set the position, and resolve the promise with the resulting image
-        fabric.Image.fromURL(image, (img) => {
-          this.cropCanvas.add(img).renderAll();
-          img.set({
-            left,
-            top,
-          })
-          this.cropCanvas.renderAll();
-          resolve(this.cropCanvas.toDataURL());
-        });
-      })
-    }
   },
   mounted() {
-    // Initialize drawCanvas, this canvas will contain our original drawing / image
-    this.drawCanvas = new fabric.Canvas('drawCanvas');
     // Initialize stitchCanvas, this canvas will contain our resulting stitched vertical image
     this.stitchCanvas = new fabric.StaticCanvas('stitchCanvas');
-    // Initialize cropCanvas, this canvas will be used for chopping the image up and creating the generation frames
-    this.cropCanvas = new fabric.Canvas('cropCanvas');
-    // Start by loading in the image
-    fabric.Image.fromURL(this.image, async (img) => {
-      this.drawCanvas.add(img).renderAll();
-      // Create the generation frames, top, bottom, left and right
-      this.topGenerationFrame = await this.generationFrame(this.drawCanvas.toDataURL({
-        height: HALF_ORIGINAL_SIZE
-      }), HALF_ORIGINAL_SIZE, 0);
-      this.bottomGenerationFrame = await this.generationFrame(this.drawCanvas.toDataURL({
-        top: HALF_ORIGINAL_SIZE,
-        height: HALF_ORIGINAL_SIZE
-      }), 0, 0);
-      this.leftGenerationFrame = await this.generationFrame(this.drawCanvas.toDataURL({
-        width: HALF_ORIGINAL_SIZE
-      }), 0, HALF_ORIGINAL_SIZE);
-      this.rightGenerationFrame = await this.generationFrame(this.drawCanvas.toDataURL({
-        left: HALF_ORIGINAL_SIZE,
-        width: HALF_ORIGINAL_SIZE
-      }), 0, 0);
-      this.generationFramesLoading = false;
-    });
+    // Expose on the window object for easy debugging
+    window.canvas = this.stitchCanvas;
     // Also draw in the original image on the stitching canvas, centered vertically
     fabric.Image.fromURL(this.image, async (img) => {
       this.stitchCanvas.add(img).renderAll();
@@ -186,6 +206,12 @@ export default {
         top: HALF_DEST_HEIGHT - HALF_ORIGINAL_SIZE
       }).setCoords();
       this.stitchCanvas.renderAll();
+      // Create the generation frames, top, bottom, left and right
+      this.generationFrames.push(this.addGenerationFrame(0, -0.5));
+      this.generationFrames.push(this.addGenerationFrame(0, 0.5));
+      this.generationFrames.push(this.addGenerationFrame(-0.5, 0));
+      this.generationFrames.push(this.addGenerationFrame(0.5, 0));
+      this.generationFramesLoading = false;
     });
   },
   data() {
@@ -198,7 +224,7 @@ export default {
       topResult: false,
       leftResult: false,
       rightResult: false,
-      // Generation frames
+      // Generation frames cross
       topGenerationFrame: false,
       bottomGenerationFrame: false,
       leftGenerationFrame: false,
@@ -207,6 +233,7 @@ export default {
       destinationHeight: DEST_HEIGHT,
       destinationWidth: DEST_WIDTH,
       originalSize: ORIGINAL_SIZE,
+      generationFrames: []
     }
   }
 }

@@ -1,10 +1,10 @@
 require('dotenv').config()
 const fs = require('fs')
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require('uuid')
 const express = require('express')
 const bodyParser = require('body-parser')
 const cors = require('cors')
-const { Configuration, OpenAIApi } = require('openai');
+const { Configuration, OpenAIApi } = require('openai')
 
 const configuration = new Configuration({
     apiKey: process.env.OPENAI_API_KEY,
@@ -12,7 +12,8 @@ const configuration = new Configuration({
 const app = express()
 app.use(cors())
 app.use(bodyParser.json({limit: '25mb'}))
-const openai = new OpenAIApi(configuration);
+const openai = new OpenAIApi(configuration)
+const axios = require('axios')
 
 app.post('/inpaint', async (req, res) => {
     const base64Image = req.body.image.split(';base64,').pop();
@@ -26,12 +27,26 @@ app.post('/inpaint', async (req, res) => {
             1,
             '512x512'
         );
-        const image_url = response.data.data[0].url;
-        res.json(image_url)
+        fs.unlink(path, () => {
+            console.log(`Deleted file ${path}`)
+        });
+
+        // Download & proxy image to mitigate CORS
+        const imgPath = `static/${uuidv4()}.png`;
+        await axios({
+            method: 'get',
+            url: response.data.data[0].url,
+            responseType: 'arraybuffer',
+        }).then(response => {
+            fs.writeFileSync(imgPath, response.data);
+        });
+
+        res.json(`/${imgPath}`)
     });
 })
 
 const port = 3333;
+app.use('/static', express.static('static'))
 app.listen(port, () => {
     console.log(`App listening on port ${port}`)
 })

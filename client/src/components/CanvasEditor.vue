@@ -19,10 +19,13 @@
           By sending this image to the Dall-E API both as an image and as a mask, we ask Dall-E to inpaint the transparent pixels.
           The resulting image will then be stitched in a canvas on the right position.
         </p>
-        <div class="panel" v-if="!generated">
+        <div class="panel mt-3" v-if="!generated">
           <p>
             Make sure the server is running & your API key is filled in, then press the button below.
           </p>
+          <div class="py-3">
+            <textarea v-model="inputPrompt"></textarea>
+          </div>
           <button @click="extendVerticalAndHorizontal" :disabled="generationFramesLoading || loading">
             <template v-if="loading">Loading, give it around 20 seconds per iteration</template>
             <template v-else>Extend image</template>
@@ -174,7 +177,7 @@ export default {
     async extend(image, rect) {
       // Make sure the server is running, this will take ~20 seconds on average
       const res = await $http.post(`${API}/inpaint`, {
-        prompt: this.prompt,
+        prompt: this.inputPrompt,
         image,
       })
       return new Promise((resolve, reject) => {
@@ -216,6 +219,7 @@ export default {
   },
   data() {
     return {
+      inputPrompt: this.prompt,
       loading: false,
       generated: false,
       generationFramesLoading: true,

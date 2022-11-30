@@ -14,6 +14,7 @@
         <p>
           Below, the images are shown that have been prepared for inpainting. These images are 512x512px and have a transparency channel.
         </p>
+        <img :src="result" v-if="result" />
         <img width="200" :src="generationFrame.image" v-for="generationFrame in generationFrames" />
         <p>
           By sending this image to the Dall-E API both as an image and as a mask, we ask Dall-E to inpaint the transparent pixels.
@@ -69,8 +70,8 @@ img {
 }
 </style>
 <script>
-const DEST_HEIGHT = 1200;
-const DEST_WIDTH = 1200;
+const DEST_HEIGHT = 1024;
+const DEST_WIDTH = 1024;
 const HALF_DEST_WIDTH = DEST_WIDTH / 2;
 const HALF_DEST_HEIGHT = DEST_HEIGHT / 2;
 
@@ -102,8 +103,8 @@ export default {
       this.stitchCanvas.add(rect);
       this.stitchCanvas.centerObject(rect);
       rect.set({
-        left: rect.left + ORIGINAL_SIZE * xOffsetPercentage,
-        top: rect.top + ORIGINAL_SIZE * yOffsetPercentage,
+        left: Math.round(rect.left + ORIGINAL_SIZE * xOffsetPercentage),
+        top: Math.round(rect.top + ORIGINAL_SIZE * yOffsetPercentage),
       })
       this.stitchCanvas.renderAll();
       return {
@@ -158,6 +159,8 @@ export default {
         this.stitchCanvas.renderAll();
 
         this.clearAllGenerationFrames();
+
+        this.result = this.stitchCanvas.toDataURL({type: 'png'});
 
         this.generated = true;
       } catch (error) {
@@ -221,6 +224,7 @@ export default {
   },
   data() {
     return {
+      result: false,
       inputPrompt: this.prompt,
       loading: false,
       generated: false,

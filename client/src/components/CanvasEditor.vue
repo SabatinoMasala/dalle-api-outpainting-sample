@@ -19,17 +19,19 @@
           By sending this image to the Dall-E API both as an image and as a mask, we ask Dall-E to inpaint the transparent pixels.
           The resulting image will then be stitched in a canvas on the right position.
         </p>
-        <div class="panel mt-3" v-if="!generated">
-          <p>
-            Make sure the server is running & your API key is filled in, then press the button below.
-          </p>
-          <div class="py-3">
-            <textarea v-model="inputPrompt"></textarea>
+        <div class="card shadow mt-3" v-if="!generated">
+          <div class="card-body">
+            <p>
+              Make sure the server is running & your API key is filled in, then press the button below.
+            </p>
+            <div class="py-3">
+              <textarea class="form-control" v-model="inputPrompt"></textarea>
+            </div>
+            <button @click="extendVerticalAndHorizontal" :disabled="generationFramesLoading || loading">
+              <template v-if="loading">Loading, give it around 20 seconds per iteration</template>
+              <template v-else>Extend image</template>
+            </button>
           </div>
-          <button @click="extendVerticalAndHorizontal" :disabled="generationFramesLoading || loading">
-            <template v-if="loading">Loading, give it around 20 seconds per iteration</template>
-            <template v-else>Extend image</template>
-          </button>
         </div>
         <div v-if="topResult">
           <p>Top:</p>
@@ -198,7 +200,7 @@ export default {
   },
   mounted() {
     // Initialize stitchCanvas, this canvas will contain our resulting stitched vertical image
-    this.stitchCanvas = new fabric.StaticCanvas('stitchCanvas');
+    this.stitchCanvas = new fabric.Canvas('stitchCanvas');
     // Expose on the window object for easy debugging
     window.canvas = this.stitchCanvas;
     // Also draw in the original image on the stitching canvas, centered vertically

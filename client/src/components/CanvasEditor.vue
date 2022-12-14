@@ -160,6 +160,8 @@ export default {
 
         this.clearAllGenerationFrames();
 
+        this.stitchCanvas.renderAll();
+
         this.result = this.stitchCanvas.toDataURL({type: 'png'});
 
         this.generated = true;

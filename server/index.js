@@ -25,7 +25,7 @@ app.post('/inpaint', async (req, res) => {
             fs.createReadStream(path),
             req.body.prompt,
             1,
-            '512x512'
+            '1024x1024'
         );
         fs.unlink(path, () => {
             console.log(`Deleted file ${path}`)
